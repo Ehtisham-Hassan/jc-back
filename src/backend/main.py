@@ -1,0 +1,93 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from backend.core.config import settings
+from backend.core.database import engine, Base
+from backend.middleware.cors import add_cors_middleware
+from backend.api.endpoint import routes
+from backend.models import User
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    # Create database tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Create a superuser if it doesn't exist
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    try:
+        from backend.utils.security import get_password_hash
+        
+        # Check if superuser exists
+        superuser = db.query(User).filter(User.is_superuser == True).first()
+        if not superuser:
+            # Create default superuser
+            superuser = User(
+                email="admin@example.com",
+                username="admin",
+                hashed_password=get_password_hash("admin123"),
+                full_name="Administrator",
+                is_superuser=True,
+                is_active=True
+            )
+            db.add(superuser)
+            db.commit()
+            print("Default superuser created: admin@example.com / admin123")
+    except Exception as e:
+        print(f"Error creating superuser: {e}")
+    finally:
+        db.close()
+    
+    yield
+    
+    # Shutdown
+    pass
+
+
+# Create FastAPI app
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    description=settings.DESCRIPTION,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url=f"{settings.API_V1_STR}/docs",
+    redoc_url=f"{settings.API_V1_STR}/redoc",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+add_cors_middleware(app)
+
+# Include routers
+app.include_router(routes.router, prefix=settings.API_V1_STR)
+
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to FastAPI Backend",
+        "version": settings.VERSION,
+        "docs": f"{settings.API_V1_STR}/docs"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Service is running"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "backend.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
+
