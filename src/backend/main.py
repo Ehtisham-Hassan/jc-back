@@ -11,42 +11,79 @@ from backend.api.endpoint import routes
 from backend.models import User
 
 
+# In src/backend/main.py, add better error handling
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    # Create database tables
-    Base.metadata.create_all(bind=engine)
-    
-    # Create a superuser if it doesn't exist
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
     try:
-        from backend.utils.security import get_password_hash
+        # Create database tables
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created successfully")
         
-        # Check if superuser exists
-        superuser = db.query(User).filter(User.is_superuser == True).first()
-        if not superuser:
-            # Create default superuser
-            superuser = User(
-                email="admin@example.com",
-                username="admin",
-                hashed_password=get_password_hash("admin123"),
-                full_name="Administrator",
-                is_superuser=True,
-                is_active=True
-            )
-            db.add(superuser)
-            db.commit()
-            print("Default superuser created: admin@example.com / admin123")
+        # Create superuser
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+        try:
+            from backend.utils.security import get_password_hash
+            
+            superuser = db.query(User).filter(User.is_superuser == True).first()
+            if not superuser:
+                superuser = User(
+                    email="admin@example.com",
+                    username="admin",
+                    hashed_password=get_password_hash("admin123"),
+                    full_name="Administrator",
+                    is_superuser=True,
+                    is_active=True
+                )
+                db.add(superuser)
+                db.commit()
+                print("✅ Default superuser created: admin@example.com / admin123")
+        except Exception as e:
+            print(f"⚠️ Error creating superuser: {e}")
+        finally:
+            db.close()
     except Exception as e:
-        print(f"Error creating superuser: {e}")
-    finally:
-        db.close()
+        print(f"❌ Error during startup: {e}")
+        raise e
     
     yield
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Startup
+#     # Create database tables
+#     Base.metadata.create_all(bind=engine)
     
-    # Shutdown
-    pass
+#     # Create a superuser if it doesn't exist
+#     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+#     db = SessionLocal()
+#     try:
+#         from backend.utils.security import get_password_hash
+        
+#         # Check if superuser exists
+#         superuser = db.query(User).filter(User.is_superuser == True).first()
+#         if not superuser:
+#             # Create default superuser
+#             superuser = User(
+#                 email="admin@example.com",
+#                 username="admin",
+#                 hashed_password=get_password_hash("admin123"),
+#                 full_name="Administrator",
+#                 is_superuser=True,
+#                 is_active=True
+#             )
+#             db.add(superuser)
+#             db.commit()
+#             print("Default superuser created: admin@example.com / admin123")
+#     except Exception as e:
+#         print(f"Error creating superuser: {e}")
+#     finally:
+#         db.close()
+    
+#     yield
+    
+#     # Shutdown
+#     pass
 
 
 # Create FastAPI app
