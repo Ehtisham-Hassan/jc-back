@@ -3,6 +3,8 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from backend.core.database import Base
+from sqlalchemy.orm import relationship
+
 
 
 class File(Base):
@@ -17,3 +19,6 @@ class File(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(20), default="uploaded")  # uploaded, processing, completed, failed
+
+    mappings = relationship("Mapping", back_populates="file")
+    products = relationship("Product", back_populates="file")

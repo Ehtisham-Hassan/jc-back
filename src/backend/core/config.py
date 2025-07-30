@@ -7,7 +7,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # API Configuration
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = ""
     PROJECT_NAME: str = "FastAPI Backend"
     VERSION: str = "1.0.0"
     DESCRIPTION: str = "A professional FastAPI backend application"
