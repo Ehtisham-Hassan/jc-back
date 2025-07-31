@@ -29,7 +29,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./app.db"
     
     # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:8080"]
+    # CORS
+    BACKEND_CORS_ORIGINS: list = [
+    "https://web-production-813d.up.railway.app", 
+    "http://localhost:8080",
+    "https://jc-mapping-seven.vercel.app",  # Replace with your actual Vercel domain
+    "https://*.vercel.app",  # Allow all Vercel subdomains
+    "https://*.railway.app"  # Allow Railway domains too
+]
     
     # Environment
     ENVIRONMENT: str = "development"
