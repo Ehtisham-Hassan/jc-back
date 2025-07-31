@@ -115,7 +115,36 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "message": "Service is running"}
+    health_status = {
+        "status": "healthy",
+        "message": "Service is running",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "services": {
+            "database": "connected",
+            "pinecone": "unknown",
+            "openai": "unknown"
+        }
+    }
+    
+    # Check Pinecone connection
+    try:
+        from backend.api.endpoint.db import _get_pinecone_client, _get_openai_client
+        _get_pinecone_client()
+        health_status["services"]["pinecone"] = "connected"
+    except Exception as e:
+        health_status["services"]["pinecone"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Check OpenAI connection
+    try:
+        _get_openai_client()
+        health_status["services"]["openai"] = "connected"
+    except Exception as e:
+        health_status["services"]["openai"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    return health_status
 
 
 if __name__ == "__main__":

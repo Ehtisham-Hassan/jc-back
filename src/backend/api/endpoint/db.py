@@ -7,23 +7,41 @@ import uuid
 from datetime import datetime
 from backend.core.config import settings
 
-# Initialize Pinecone and OpenAI clients
-try:
-    pc = pinecone.Pinecone(api_key=settings.PINECONE_API_KEY)
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-except Exception as e:
-    print(f"Error initializing clients: {e}")
-    raise e
+# Global variables for lazy initialization
+_pc = None
+_client = None
+_index = None
 
-# Connect to the index with provided configurations
-try:
-    index = pc.Index(
-        name=settings.PINECONE_INDEX_NAME,
-        host=settings.PINECONE_HOST
-    )
-except Exception as e:
-    print(f"Error connecting to index: {e}")
-    raise e
+def _get_pinecone_client():
+    """Lazy initialization of Pinecone client"""
+    global _pc
+    if _pc is None:
+        if not settings.PINECONE_API_KEY:
+            raise ValueError("PINECONE_API_KEY environment variable is not set")
+        _pc = pinecone.Pinecone(api_key=settings.PINECONE_API_KEY)
+    return _pc
+
+def _get_openai_client():
+    """Lazy initialization of OpenAI client"""
+    global _client
+    if _client is None:
+        if not settings.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        _client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    return _client
+
+def _get_pinecone_index():
+    """Lazy initialization of Pinecone index"""
+    global _index
+    if _index is None:
+        pc = _get_pinecone_client()
+        if not settings.PINECONE_INDEX_NAME or not settings.PINECONE_HOST:
+            raise ValueError("PINECONE_INDEX_NAME and PINECONE_HOST environment variables must be set")
+        _index = pc.Index(
+            name=settings.PINECONE_INDEX_NAME,
+            host=settings.PINECONE_HOST
+        )
+    return _index
 
 def upsert_mapping_data_to_pinecone(ai_response: Dict[str, Any], file_id: str, client_number: str = None) -> Dict[str, Any]:
     """
@@ -46,7 +64,7 @@ def upsert_mapping_data_to_pinecone(ai_response: Dict[str, Any], file_id: str, c
         mapping_text = _prepare_mapping_text(ai_response)
         
         # Generate embedding using OpenAI text-embedding-3-small (512 dimensions)
-        response = client.embeddings.create(
+        response = _get_openai_client().embeddings.create(
             input=mapping_text, 
             model="text-embedding-3-small", 
             dimensions=512
@@ -76,7 +94,7 @@ def upsert_mapping_data_to_pinecone(ai_response: Dict[str, Any], file_id: str, c
         }
         
         # Upsert to Pinecone
-        index.upsert(vectors=[vector], namespace="default")
+        _get_pinecone_index().upsert(vectors=[vector], namespace="default")
         
         print(f"✅ Successfully upserted mapping data to Pinecone with ID: {mapping_id}")
         
@@ -164,7 +182,7 @@ def search_mapping_data(query_text: str, top_k: int = 5, client_number: str = No
     """
     try:
         # Generate embedding for the query
-        query_response = client.embeddings.create(
+        query_response = _get_openai_client().embeddings.create(
             input=query_text, 
             model="text-embedding-3-small", 
             dimensions=512
@@ -181,7 +199,7 @@ def search_mapping_data(query_text: str, top_k: int = 5, client_number: str = No
             filter_dict["client_number"] = client_number
         
         # Perform relevance search
-        results = index.query(
+        results = _get_pinecone_index().query(
             vector=query_embedding,
             top_k=top_k,
             include_metadata=True,
@@ -233,7 +251,7 @@ def delete_mapping_data(mapping_id: str) -> Dict[str, Any]:
     """
     try:
         # Delete from Pinecone
-        index.delete(ids=[mapping_id], namespace="default")
+        _get_pinecone_index().delete(ids=[mapping_id], namespace="default")
         
         print(f"✅ Successfully deleted mapping data from Pinecone with ID: {mapping_id}")
         
